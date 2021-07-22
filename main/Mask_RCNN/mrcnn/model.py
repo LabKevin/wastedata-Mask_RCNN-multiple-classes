@@ -370,7 +370,7 @@ def mobilenetv2_graph(inputs, architecture, alpha = 1.0, stage5 = False, train_b
     x      = _inverted_residual_block(x, 160, (3, 3), t=6, strides=2, n=3, alpha=1.0, block_id=14, train_bn=train_bn)	# Input Res: 1/16
     # C5 = x = _inverted_residual_block(x, 320, (3, 3), t=6, strides=1, n=1, alpha=1.0, block_id=17, train_bn=train_bn)	# Input Res: 1/32
     #x = _conv_block(x, 1280, alpha, (1, 1), strides=(1, 1), block_id=18, train_bn=train_bn)                            # Input Res: 1/32
-
+    print("inside mobilenetv2")
     ## Newly added
     if stage5:
         C5 = x = _inverted_residual_block(x, 320, (3, 3), t=6, strides=1, n=1, alpha=1.0, block_id=17, train_bn=train_bn)
