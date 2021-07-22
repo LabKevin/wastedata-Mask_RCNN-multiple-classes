@@ -2384,7 +2384,7 @@ class MaskRCNN():
             from mrcnn.parallel_model import ParallelModel
             model = ParallelModel(model, config.GPU_COUNT)
         else:
-            utils.set_cuda_visible_devices(config.GPU_COUNT)
+            #utils.set_cuda_visible_devices(config.GPU_COUNT)
 
         return model
 
