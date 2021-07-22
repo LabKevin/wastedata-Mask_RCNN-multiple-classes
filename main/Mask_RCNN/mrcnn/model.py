@@ -215,7 +215,7 @@ def _depthwise_conv_block(inputs, pointwise_conv_filters, alpha,
     return KL.Activation(relu6, name='conv_pw_{}_relu'.format(block_id))(x)
 
 
-def mobilenetv1_graph(inputs, architecture, alpha=1.0, depth_multiplier=1, train_bn = False):
+def mobilenetv1_graph(inputs, architecture, alpha=1.0, stage5=False, depth_multiplier=1, train_bn = False):
     """MobileNetv1
     This function defines a MobileNetv1 architectures.
     # Arguments
@@ -249,8 +249,17 @@ def mobilenetv1_graph(inputs, architecture, alpha=1.0, depth_multiplier=1, train
     C4 = x = _depthwise_conv_block(x, 512, alpha, depth_multiplier, block_id=11, train_bn=train_bn)     #Input Resolution: 14 x 14
 
     # Stage 5
-    x      = _depthwise_conv_block(x, 1024, alpha, depth_multiplier, strides=(2, 2), block_id=12, train_bn=train_bn)
-    C5 = x = _depthwise_conv_block(x, 1024, alpha, depth_multiplier, block_id=13, train_bn=train_bn)    #Input Resolution: 7x7
+
+    ## Newly added
+    if stage5:
+        x = _depthwise_conv_block(x, 1024, alpha, depth_multiplier, strides=(2, 2), block_id=12, train_bn=train_bn)
+        C5 = x = _depthwise_conv_block(x, 1024, alpha, depth_multiplier, block_id=13, train_bn=train_bn)    #Input Resolution: 7x7
+    else:
+        C5 = None
+    ##
+
+    #x      = _depthwise_conv_block(x, 1024, alpha, depth_multiplier, strides=(2, 2), block_id=12, train_bn=train_bn)
+    #C5 = x = _depthwise_conv_block(x, 1024, alpha, depth_multiplier, block_id=13, train_bn=train_bn)    #Input Resolution: 7x7
     return [C1, C2, C3, C4, C5]
 
 
@@ -339,7 +348,7 @@ def _inverted_residual_block(inputs, filters, kernel, t, strides, n, alpha, bloc
     return x
 
 
-def mobilenetv2_graph(inputs, architecture, alpha = 1.0, train_bn = False):
+def mobilenetv2_graph(inputs, architecture, alpha = 1.0, stage5 = False, train_bn = False):
     """MobileNetv2
     This function defines a MobileNetv2 architectures.
     # Arguments
@@ -359,8 +368,15 @@ def mobilenetv2_graph(inputs, architecture, alpha = 1.0, train_bn = False):
     x      = _inverted_residual_block(x, 64,  (3, 3), t=6, strides=2, n=4, alpha=1.0, block_id=7, train_bn=train_bn)	# Input Res: 1/8
     C4 = x = _inverted_residual_block(x, 96,  (3, 3), t=6, strides=1, n=3, alpha=1.0, block_id=11, train_bn=train_bn)	# Input Res: 1/8
     x      = _inverted_residual_block(x, 160, (3, 3), t=6, strides=2, n=3, alpha=1.0, block_id=14, train_bn=train_bn)	# Input Res: 1/16
-    C5 = x = _inverted_residual_block(x, 320, (3, 3), t=6, strides=1, n=1, alpha=1.0, block_id=17, train_bn=train_bn)	# Input Res: 1/32
+    # C5 = x = _inverted_residual_block(x, 320, (3, 3), t=6, strides=1, n=1, alpha=1.0, block_id=17, train_bn=train_bn)	# Input Res: 1/32
     #x = _conv_block(x, 1280, alpha, (1, 1), strides=(1, 1), block_id=18, train_bn=train_bn)                            # Input Res: 1/32
+
+    ## Newly added
+    if stage5:
+        C5 = x = _inverted_residual_block(x, 320, (3, 3), t=6, strides=1, n=1, alpha=1.0, block_id=17, train_bn=train_bn)
+    else:
+        C5 = None
+    ##
 
     return [C1,C2,C3,C4,C5]
 
@@ -2176,12 +2192,20 @@ class MaskRCNN():
         # Bottom-up Layers
         # Returns a list of the last layers of each stage, 5 in total.
         # Don't create the thead (stage 5), so we pick the 4th item in the list.
+
         if callable(config.BACKBONE):
             _, C2, C3, C4, C5 = config.BACKBONE(input_image, stage5=True,
                                                 train_bn=config.TRAIN_BN)
+        elif(config.BACKBONE == "mobilenetv2"):
+            _, C2, C3, C4, C5 = mobilenetv2_graph(input_image, config.BACKBONE,
+                                             stage5=True, train_bn=config.TRAIN_BN)
+        elif(config.BACKBONE == "mobilenetv1"):
+            _, C2, C3, C4, C5 = mobilenetv1_graph(input_image, config.BACKBONE,
+                                                  stage5=True, train_bn=config.TRAIN_BN)
         else:
             _, C2, C3, C4, C5 = resnet_graph(input_image, config.BACKBONE,
                                              stage5=True, train_bn=config.TRAIN_BN)
+
         # Top-down Layers
         # TODO: add assert to varify feature map sizes match what's in config
         P5 = KL.Conv2D(config.TOP_DOWN_PYRAMID_SIZE, (1, 1), name='fpn_c5p5')(C5)
